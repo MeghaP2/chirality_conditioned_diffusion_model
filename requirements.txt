@@ -1,0 +1,8 @@
+torch
+numpy
+mace-torch
+e3nn
+torch-geometric
+rdkit
+openbabel-wheel
+cosymlib
