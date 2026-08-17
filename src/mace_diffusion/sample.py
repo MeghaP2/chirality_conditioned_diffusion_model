@@ -7,7 +7,7 @@ project README for what that distinction means and what would need to change).
 """
 import torch
 from mace.tools.torch_geometric import Batch
-
+from pathlib import Path
 from .diffusion import get_karras_sigmas, edm_scalings
 
 
@@ -63,6 +63,7 @@ def sample_mace_heun(wrapper, template_graph, sigmas, sigma_data,
 
 def save_xyz(N, coords, atomtypes, filename):
     """atomtypes: 0/1 encoding (0 = H, 1 = C), matching atom_type_dir."""
+    Path(filename).parent.mkdir(parents=True, exist_ok=True)
     with open(filename, "w") as f:
         f.write(f"{N}\n")
         f.write("genAI structure\n")
