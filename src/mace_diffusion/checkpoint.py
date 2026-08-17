@@ -7,7 +7,7 @@ fixed hyperparameter, and must travel with the checkpoint).
 """
 import torch
 from e3nn import o3
-
+from pathlib import Path
 
 def save_checkpoint(path, wrapper, optimizer, epoch, mace_cfg: dict, diffusion_cfg: dict):
     """
@@ -23,6 +23,7 @@ def save_checkpoint(path, wrapper, optimizer, epoch, mace_cfg: dict, diffusion_c
         "mace_config": {**mace_cfg, "hidden_irreps": str(mace_cfg["hidden_irreps"])},
         "diffusion_config": diffusion_cfg,
     }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     torch.save(checkpoint, path)
 
 
