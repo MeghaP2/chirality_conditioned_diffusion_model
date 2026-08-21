@@ -33,7 +33,7 @@ def optimize_with_fixed_dihedral(mol, dihedral_atoms1, dihedral_atoms2,
     ff = AllChem.MMFFGetMoleculeForceField(mol, AllChem.MMFFGetMoleculeProperties(mol))
     a, b, c, d = dihedral_atoms1
     e, f, g, h = dihedral_atoms2
-    ff.MMFFAddTorsionConstraint(a, b, c, d, False, target_angle1, target_angle1, force_constant)
+    ff.MMFFAddTorsionConstraint(a, b, c, d, False, target_angle1, target_angle1, force_constant) # False: absolute dihedral value, not relative
     ff.MMFFAddTorsionConstraint(e, f, g, h, False, target_angle2, target_angle2, force_constant)
     return ff.Minimize(maxIts=500)
 
