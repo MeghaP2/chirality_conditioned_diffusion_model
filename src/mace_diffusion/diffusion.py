@@ -43,6 +43,9 @@ def forward_noise_ve_batched(x0, batch_idx, sigmas, t=None):
         t = torch.randint(0, len(sigmas), (num_graphs,), device=x0.device)
     sigma = sigmas[t][batch_idx].unsqueeze(-1)   # molecule-level sigma, broadcast to atom-level
     z = torch.randn_like(x0)
+    zmean=torch.zeros((num_graphs,3),dtype=torch.float,device=device).index_add_(0,batch_idx,z)
+    zmean=zmean.torch.bincount(batch,minlength=num_graphs).unsqueeze(-1)
+    z=z-zmean[batch_idx]
     x_t = x0 + sigma * z
     return x_t, z, sigma, t
 
