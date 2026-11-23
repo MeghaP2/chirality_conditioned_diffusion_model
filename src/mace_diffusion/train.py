@@ -26,7 +26,7 @@ def compute_avg_num_neighbors(dataset, r_max):
     return avg
 
 
-def compute_mace_diffusion_loss(wrapper, batch, sigmas, sigma_data):
+def compute_mace_diffusion_loss(wrapper, batch, sigmas, sigma_data, bond_loss=0.1,chirality_loss=0.5):
     x0 = batch.positions
     batch_idx = batch.batch
     y = batch.y   # (num_graphs, 5)
@@ -39,7 +39,19 @@ def compute_mace_diffusion_loss(wrapper, batch, sigmas, sigma_data):
     F, _ = wrapper(batch.to_dict(), x_in, t_per_atom, sigma, x0, y)
 
     F_target = (x0 - c_skip * x_t) / c_out   # solved from D_theta = c_skip*x_t + c_out*F = x0
-    loss = ((F - F_target) ** 2).mean()
+    coord_loss = ((F - F_target) ** 2).mean()
+
+    j,i=wrapper.bond_edge_index
+    xpred=F*c_out+x_t*skip
+    d_pred=xpred[j]-xpred[i]
+    d0=x0[j]-x0[i]
+    bond_loss=((d0-d)**2).mean()
+
+    q=wrapper.quads
+    V=unit_signed_volume(x0,q)
+    
+    
+    
     return loss, t
 
 
