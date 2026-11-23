@@ -1,3 +1,4 @@
+(Working on Major Changes and pip installation!!!)
 # MACE-Based Equivariant Diffusion for Chirality-Aware Conformer Generation
 
 A MACE (equivariant GNN) diffusion model that generates 3D conformers of
