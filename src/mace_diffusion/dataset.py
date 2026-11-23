@@ -19,7 +19,7 @@ import torch
 from mace.data import Configuration, AtomicData
 
 from configs.config import atom_type_dir, element_to_z, z_table, LARGE_CUTOFF
-
+from RDKit import Chem
 
 class NodEmbedding:
     """Manual .mol2 parser (no ASE/RDKit dependency)."""
@@ -92,7 +92,13 @@ def build_dihedral_index(bond_edge_index):
     if len(quads) == 0:
         return torch.zeros((4, 0), dtype=torch.long)
     return torch.tensor(quads, dtype=torch.long).t().contiguous()
-
+  
+def unit_signed_volume(x,q,floor=0.3):
+    a,b,c,d=q
+    def u(k):
+        v=x[a]-x[k]
+        return v/v.norm(dim=-1,keepdim=True).clamp(min=floor)
+    return (torch.linalg.cross(u(b),u(c))*u(d)).sum(-1)
 
 class MaceMolecularDataset(torch.utils.data.Dataset):
     def __init__(self, files_data, chirality_data, large_cutoff=LARGE_CUTOFF):
@@ -107,10 +113,14 @@ class MaceMolecularDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         atom_types, coords, bond_edges = self.embedder.node_embedding(self.files_data[idx])
         atomic_num = [element_to_z["C"] if a == 1 else element_to_z["H"] for a in atom_types]
-
+       # load molecule with RDKit and assign stereochemistry
+        mol=Chem.MolFromMolFile(self.files_data[idx],removeHs=False)
+        Chem.AssignStereochemistryFrom3D(mol)
+        Chem.AssignStereochemistry(mol,cleanIt=True,force=True)
+        centers=mol.FindMolChiralCenters(mol,useLegacyImplementation=False)
         pos = torch.tensor(coords, dtype=torch.float)
         pos = pos - pos.mean(dim=0, keepdim=True)  # center on geometric centroid
-        y = torch.tensor(self.chirality_data[idx, :], dtype=torch.float).unsqueeze(0)  # (1, 5)
+        y = torch.tensor(self.chirality_data[idx, :], dtype=torch.float).unsqueeze(0)  
 
         config = Configuration(
             atomic_numbers=np.array(atomic_num),
@@ -125,7 +135,17 @@ class MaceMolecularDataset(torch.utils.data.Dataset):
         # store the CLEAN edge vectors -- needed for the incremental update at every noise level
         i, j = atomic_data.edge_index
         atomic_data.edge_vec_clean = pos[j] - pos[i]  # matches get_edge_vectors_and_lengths convention
-
+        quads, orient=[],[]
+        role=torch.zeros(len(atom_types),dtype=torch.long)
+        for a, lab in centers:
+            nbrs=sorted(Chem.GetAtomWithIdx(a).GetNeighbors(), key=lambda n: int(n.GetProp("_CIPRank")), reverse=True)
+            q=[a]+[n.GetIdx() for n in nbrs[:3]]
+            quads.append(q)
+            V=unit_signed_volume(pos,torch.tensor(q).view(4,1))
+            h=1.0 if lab=="S" else -1.0
+            role[q[0]],role[q[1]],role[q[2]],role[q[3]]=1,2,3,4
+        atomic_data.chiral_index=torch.tensor(quads,dtype=torch.long).t().continguous() if quads else torch.zeros((4,0),dtype=torch.long)
+        atomic_data.role=role
         bond_edge_index = torch.tensor(bond_edges, dtype=torch.long).t().contiguous()
         angle_index = build_angle_index(bond_edge_index)
         true_angles = compute_true_angles(pos, angle_index)
